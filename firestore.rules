@@ -1,0 +1,36 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // THAY email admin của bạn vào đây (phải trùng với ADMIN trong index.html)
+    function admin() { return request.auth != null && request.auth.token.email == "EMAIL_ADMIN@gmail.com"; }
+    function ok() {
+      return request.auth != null &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.blocked != true;
+    }
+
+    match /config/{d} {
+      allow read: if request.auth != null;
+      allow write: if admin();
+    }
+    match /users/{uid} {
+      allow read: if admin() || request.auth.uid == uid;
+      allow create: if request.auth.uid == uid &&
+        (admin() || get(/databases/$(database)/documents/config/main).data.allowNew == true);
+      allow update: if admin() ||
+        (request.auth.uid == uid && request.resource.data.blocked == resource.data.blocked);
+    }
+    match /subjects/{d} {
+      allow read: if ok();
+      allow write: if admin();
+    }
+    match /exams/{d} {
+      allow read: if ok();
+      allow write: if admin();
+    }
+    match /attempts/{d} {
+      allow create: if ok() && request.resource.data.uid == request.auth.uid;
+      allow read: if admin() || (ok() && resource.data.uid == request.auth.uid);
+      allow delete: if admin();
+    }
+  }
+}
