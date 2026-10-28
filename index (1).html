@@ -1,0 +1,162 @@
+<!DOCTYPE html><html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Ôn thi trắc nghiệm</title>
+<style>
+:root{--bg:#f1f4fb;--c:#fff;--t:#1e2433;--p:#2d4bd1;--g:#16a34a;--r:#dc2626;--b:#d9deea;--m:#6b7390}
+[data-d]{--bg:#0f1420;--c:#1a2132;--t:#e6e9f2;--b:#2c3550;--m:#9aa3c0}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--t);font:16px/1.5 system-ui,Segoe UI,Roboto,sans-serif}
+.w{max-width:900px;margin:auto;padding:14px}.bar{display:flex;gap:8px;align-items:center;justify-content:space-between;background:var(--p);color:#fff;padding:10px 14px;position:sticky;top:0;z-index:5}
+.bar b{font-size:18px}.bar div{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.card{background:var(--c);border:1px solid var(--b);border-radius:14px;padding:16px;margin:12px 0;box-shadow:0 2px 8px #0001}
+button,select,input{font:inherit;border-radius:10px;border:1px solid var(--b);padding:8px 12px;background:var(--c);color:var(--t)}
+button{cursor:pointer}button.p{background:var(--p);color:#fff;border-color:var(--p)}button.d{color:var(--r)}button:disabled{opacity:.45;cursor:default}
+.bar button{background:#fff2;color:#fff;border-color:#fff4}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px}
+.sub{cursor:pointer;font-weight:600;text-align:center;padding:26px 10px}.sub:hover{border-color:var(--p)}
+.tx{white-space:pre-wrap;word-break:break-word}.code{font-family:Consolas,Menlo,monospace;font-size:14px}
+.o{display:flex;gap:10px;align-items:flex-start;width:100%;text-align:left;margin:8px 0;padding:10px 12px}
+.o i{font-style:normal;font-weight:700;border:2px solid var(--b);border-radius:50%;min-width:30px;height:30px;display:grid;place-items:center}
+.o.s{border-color:var(--p);background:#2d4bd118}.o.ok{border-color:var(--g);background:#16a34a22}.o.no{border-color:var(--r);background:#dc262622}
+.dots{display:flex;gap:4px;flex-wrap:wrap}.dots span{width:12px;height:12px;border-radius:50%;background:var(--b)}.dots .ok{background:var(--g)}.dots .no{background:var(--r)}.dots .sk{background:#eab308}.dots .cu{outline:2px solid var(--p)}
+.big{font-size:56px;font-weight:800;color:var(--p);text-align:center}.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.sp{justify-content:space-between}
+.m{color:var(--m);font-size:14px}table{width:100%;border-collapse:collapse;font-size:14px}td,th{padding:6px;border-bottom:1px solid var(--b);text-align:left}
+</style></head><body><div id="app"></div>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+<script>
+// ===== CẤU HÌNH: dán firebaseConfig của bạn + email admin =====
+const ADMIN="01230456haha@gmail.com";
+firebase.initializeApp({apiKey:"AIzaSyCwF3npBcV4k8RoQdnh8PWfxdbSUHadr58",authDomain:"onthitracnghiem-8ed6c.firebaseapp.com",projectId:"onthitracnghiem-8ed6c",appId:"1:1045053299445:web:b320203b00c409b05943bc"});
+// ==============================================================
+const au=firebase.auth(),db=firebase.firestore(),A=document.getElementById("app");
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const shuf=a=>{for(let i=a.length-1;i>0;i--){const j=Math.random()*(i+1)|0;[a[i],a[j]]=[a[j],a[i]]}return a};
+const isCode=s=>/\n|[;{}=<>]/.test(s),tx=s=>`<span class="tx ${isCode(s)?"code":""}">${esc(s)}</span>`;
+const fmt=s=>Math.floor(s/60)+":"+String(s%60).padStart(2,"0");
+let U,ADM,snd=localStorage.snd!=="0",Q,T,SUBS=[],EX=[],AT=[],cur=null,ALLA=[],ALLU=[];
+if(localStorage.dk==="1")document.documentElement.dataset.d=1;
+const tog=()=>{const d=document.documentElement;d.toggleAttribute("data-d");localStorage.dk=d.hasAttribute("data-d")?1:0};
+const bar=x=>`<div class="bar"><b onclick="home()" style="cursor:pointer">📚 Ôn thi</b><div>${x||""}<button onclick="snd=!snd;localStorage.snd=snd?1:0;this.textContent=snd?'🔊':'🔇'">${snd?"🔊":"🔇"}</button><button onclick="tog()">🌓</button>${U?`<button onclick="au.signOut()">Thoát</button>`:""}</div></div>`;
+function fail(e){clearInterval(T);A.innerHTML=bar()+`<div class="w"><div class="card"><b>Có lỗi xảy ra</b><p>${esc(e&&e.message||e)}</p><p class="m">Đang đăng nhập: ${esc(U?U.email:"chưa đăng nhập")}</p><button class="p" onclick="home()">Thử lại</button></div></div>`}
+window.addEventListener("unhandledrejection",ev=>{const c=ev.reason&&ev.reason.code||"";if(!/^auth\//.test(c))fail(ev.reason||"lỗi")});
+function beep(ok){if(!snd)return;try{const c=new(window.AudioContext||webkitAudioContext)(),o=c.createOscillator(),g=c.createGain();o.connect(g);g.connect(c.destination);o.type=ok?"sine":"sawtooth";o.frequency.setValueAtTime(ok?1200:180,c.currentTime);if(ok)o.frequency.setValueAtTime(1800,c.currentTime+.12);g.gain.setValueAtTime(.3,c.currentTime);g.gain.exponentialRampToValueAtTime(.001,c.currentTime+.5);o.start();o.stop(c.currentTime+.5)}catch(e){}}
+
+// ===== Đăng nhập =====
+function login(){A.innerHTML=bar()+`<div class="w"><div class="card" style="text-align:center;margin-top:60px"><h2>Luyện thi trắc nghiệm</h2><p class="m">Đăng nhập bằng Google để bắt đầu</p><button class="p" onclick="au.signInWithPopup(new firebase.auth.GoogleAuthProvider())">Đăng nhập với Google</button></div></div>`}
+au.onAuthStateChanged(async u=>{
+ if(!u){U=null;return login()}
+ U=u;ADM=u.email===ADMIN;const r=db.doc("users/"+u.uid);
+ try{const d=await r.get();
+  if(!d.exists){const c=await db.doc("config/main").get();
+   if(!ADM&&!(c.exists&&c.data().allowNew)){await au.signOut();alert("Web đã đóng đăng ký thành viên mới.");return}
+   await r.set({name:u.displayName||"",email:u.email,blocked:false,joined:Date.now(),last:Date.now()})}
+  else if(d.data().blocked){await au.signOut();alert("Tài khoản của bạn đã bị chặn.");return}
+  else r.update({last:Date.now(),cur:""});
+  home()}catch(e){alert("Lỗi: "+e.message)}});
+
+// ===== Trang chủ người dùng =====
+async function load(){const [s,e,a]=await Promise.all([db.collection("subjects").get(),db.collection("exams").get(),db.collection("attempts").where("uid","==",U.uid).get()]);
+ SUBS=s.docs.map(d=>({id:d.id,...d.data()}));EX=e.docs.map(d=>({id:d.id,...d.data()}));AT=a.docs.map(d=>({id:d.id,...d.data()})).sort((x,y)=>y.at-x.at)}
+async function home(sub){clearInterval(T);A.innerHTML=bar()+`<div class="w">Đang tải...</div>`;try{await load()}catch(e){fail(e);return}
+ const adm=ADM?`<button onclick="admin()">⚙ Quản trị</button>`:"";
+ let h=bar(adm)+`<div class="w">`;
+ if(!sub){h+=`<h2>Môn học / Thư mục</h2><div class="grid">`+SUBS.map(s=>`<div class="card sub" onclick="home('${s.id}')">📁 ${esc(s.name)}<div class="m">${EX.filter(e=>e.sid===s.id).length} đề</div></div>`).join("")+`</div>`+(SUBS.length?"":`<p class="m">Chưa có môn nào.</p>`)}
+ else{const s=SUBS.find(x=>x.id===sub);h+=`<button onclick="home()">← Quay lại</button><h2>📁 ${esc(s.name)}</h2>`;
+  EX.filter(e=>e.sid===sub).forEach(e=>{const n=AT.filter(a=>a.eid===e.id);h+=`<div class="card"><div class="row sp"><div><b>${esc(e.name)}</b><div class="m">${e.questions.length} câu · ${e.time?e.time+" phút":"không giới hạn"} · đã làm ${n.length} lần${n.length?" · gần nhất "+n[0].score:""}</div></div><button class="p" onclick="start('${e.id}')">Làm bài</button></div></div>`})}
+ A.innerHTML=h+`</div>`}
+
+// ===== Làm bài =====
+function start(id,only){const e=EX.find(x=>x.id===id);let q=(only||e.questions).map(x=>({q:x.q,o:x.o.map(y=>({...y}))}));
+ if(e.sq)shuf(q);if(e.sa)q.forEach(x=>shuf(x.o));
+ Q={e,q,i:0,a:[],res:[],sel:null,chk:false,t0:Date.now(),only:!!only};
+ db.doc("users/"+U.uid).update({cur:e.name+(only?" (câu sai)":""),last:Date.now()});
+ clearInterval(T);T=setInterval(tick,1000);showQ()}
+const el=()=>{const s=(Date.now()-Q.t0)/1000|0;return Q.e.time?Math.max(0,Q.e.time*60-s):s};
+function tick(){const t=document.getElementById("tm");if(t)t.textContent="⏱ "+fmt(el());if(Q.e.time&&el()<=0)finish()}
+function showQ(){const x=Q.q[Q.i],n=Q.q.length;
+ const dots=Q.q.map((_,i)=>`<span class="${Q.res[i]||""} ${i==Q.i?"cu":""}"></span>`).join("");
+ A.innerHTML=bar(`<span id="tm">⏱ ${fmt(el())}</span>`)+`<div class="w"><div class="card"><div class="row sp"><b>Câu ${Q.i+1}/${n}</b><button onclick="if(confirm('Thoát bài làm?')){clearInterval(T);home()}">Thoát</button></div><div style="margin:10px 0;font-weight:600">${tx(x.q)}</div><div id="ops">`+
+ x.o.map((o,i)=>`<button class="o" onclick="pick(${i})"><i>${"ABCDEFGH"[i]}</i>${tx(o.t)}</button>`).join("")+
+ `</div><div class="row sp"><button onclick="skip()">Bỏ qua</button><button class="p" id="bt" disabled onclick="chk()">Kiểm tra</button></div></div><div class="card dots">${dots}</div></div>`}
+function pick(i){if(Q.chk)return;Q.sel=i;document.querySelectorAll("#ops .o").forEach((b,j)=>b.classList.toggle("s",j==i));document.getElementById("bt").disabled=false}
+function chk(){if(!Q.chk){Q.chk=true;const x=Q.q[Q.i],ok=x.o[Q.sel].c;Q.a[Q.i]=Q.sel;Q.res[Q.i]=ok?"ok":"no";beep(ok);
+  document.querySelectorAll("#ops .o").forEach((b,j)=>{b.classList.remove("s");if(x.o[j].c)b.classList.add("ok");else if(j==Q.sel)b.classList.add("no")});
+  const b=document.getElementById("bt");b.textContent=Q.i==Q.q.length-1?"Nộp bài":"Câu tiếp"}
+ else next()}
+function skip(){Q.a[Q.i]=-1;Q.res[Q.i]="sk";next()}
+function next(){Q.chk=false;Q.sel=null;if(Q.i>=Q.q.length-1)finish();else{Q.i++;showQ()}}
+async function finish(){clearInterval(T);const n=Q.q.length;Q.q.forEach((_,i)=>{if(Q.a[i]==null){Q.a[i]=-1;Q.res[i]="sk"}});
+ const c=Q.res.filter(r=>r=="ok").length,sc=Math.round(c/n*1000)/100,secs=(Date.now()-Q.t0)/1000|0;
+ const rec={uid:U.uid,name:U.displayName||U.email,eid:Q.e.id,en:Q.e.name,score:sc,correct:c,total:n,secs,at:Date.now(),only:Q.only,det:Q.q.map((x,i)=>({q:x.q,o:x.o.map(y=>({t:y.t,c:!!y.c})),a:Q.a[i]}))};
+ try{await db.collection("attempts").add(rec);AT.unshift(rec);db.doc("users/"+U.uid).update({cur:""})}catch(e){}
+ Q.rec=rec;result("all")}
+function result(f){const r=Q.rec,w=Q.res.filter(x=>x=="no").length,s=Q.res.filter(x=>x=="sk").length;
+ const fl={all:"Tất cả",ok:"Đúng",no:"Sai",sk:"Chưa chọn"};
+ let h=bar()+`<div class="w"><div class="card"><div class="m" style="text-align:center">${esc(Q.e.name)}</div><div class="big">${r.score}</div><p style="text-align:center">✅ ${r.correct} đúng · ❌ ${w} sai · ⏭ ${s} chưa chọn · ⏱ ${fmt(r.secs)}</p><div class="row" style="justify-content:center"><button class="p" onclick="start('${Q.e.id}')">Làm lại</button>${w+s?`<button onclick="redo()">Luyện câu sai</button>`:""}<button onclick="home()">Về trang chủ</button></div></div>`;
+ h+=`<div class="row">`+Object.keys(fl).map(k=>`<button class="${k==f?"p":""}" onclick="result('${k}')">${fl[k]}</button>`).join("")+`</div>`;
+ Q.q.forEach((x,i)=>{if(f!="all"&&Q.res[i]!=f)return;h+=`<div class="card"><b>Câu ${i+1} ${{ok:"✅",no:"❌",sk:"⏭"}[Q.res[i]]}</b><div style="margin:6px 0">${tx(x.q)}</div>`+x.o.map((o,j)=>`<div class="o ${o.c?"ok":j==Q.a[i]?"no":""}"><i>${"ABCDEFGH"[j]}</i>${tx(o.t)}</div>`).join("")+`</div>`});
+ const hs=AT.filter(a=>a.eid==Q.e.id);h+=`<div class="card"><b>Lịch sử đề này (${hs.length} lần)</b><table>`+hs.map((a,i)=>`<tr><td>#${hs.length-i}</td><td>${new Date(a.at).toLocaleString("vi")}</td><td>${a.correct}/${a.total}</td><td><b>${a.score}</b></td><td>${fmt(a.secs)}</td><td>${a.only?"câu sai":""}</td></tr>`).join("")+`</table></div></div>`;A.innerHTML=h}
+function redo(){const qs=Q.q.filter((_,i)=>Q.res[i]!="ok");start(Q.e.id,qs)}
+
+// ===== Admin =====
+const gq=async(c)=>(await db.collection(c).get()).docs.map(d=>({id:d.id,...d.data()}));
+async function admin(){A.innerHTML=bar(`<button onclick="home()">Về trang người dùng</button>`)+`<div class="w">Đang tải...</div>`;
+ const [s,e,u,a,c]=await Promise.all([gq("subjects"),gq("exams"),gq("users"),gq("attempts"),db.doc("config/main").get()]);SUBS=s;EX=e;ALLA=a;ALLU=u;
+ const allow=c.exists&&c.data().allowNew,so=s.map(x=>`<option value="${x.id}">${esc(x.name)}</option>`).join("");
+ let h=bar(`<button onclick="home()">Trang người dùng</button>`)+`<div class="w"><div class="card"><b>Cài đặt chung</b><div class="row" style="margin-top:8px"><label><input type="checkbox" ${allow?"checked":""} onchange="db.doc('config/main').set({allowNew:this.checked},{merge:true})"> Cho phép thành viên mới đăng ký</label></div></div>
+ <div class="card"><b>Môn học / Thư mục</b><div class="row" style="margin:8px 0"><input id="sn" placeholder="Tên môn mới"><button class="p" onclick="addSub()">Thêm</button></div>`+s.map(x=>`<div class="row sp"><span>📁 ${esc(x.name)}</span><span><button onclick="copySub('${x.id}')">Sao chép</button> <button class="d" onclick="delSub('${x.id}')">Xóa</button></span></div>`).join("")+`</div>
+ <div class="card"><b>Tải đề lên (.docx / .txt / .json)</b><p class="m">Định dạng: "Câu 1. ..." rồi các đáp án "a. ...". Đáp án đúng là đáp án được <u>gạch chân</u>. Code C++ nhiều dòng được giữ nguyên. File .txt: đáp án đúng ghi dấu * đầu dòng (vd <code>*b. nội dung</code>). File .json (bản sao lưu): tự tạo lại môn và đề, không cần chọn môn/tên.</p><div class="row"><select id="us">${so}</select><input id="un" placeholder="Tên đề"><input id="ut" type="number" min="0" value="0" style="width:110px" title="phút, 0=không giới hạn"> phút</div><div class="row" style="margin:8px 0"><label><input type="checkbox" id="uq"> Đảo câu hỏi</label><label><input type="checkbox" id="ua"> Đảo đáp án</label><input type="file" id="uf" accept=".docx,.txt,.json"><button class="p" onclick="upload()">Tải lên</button></div><div id="um" class="m"></div></div>
+ <div class="card"><div class="row sp"><b>Danh sách đề</b><button onclick="expAll()">⬇ Sao lưu tất cả (.json)</button></div>`+e.map(x=>`<div class="row sp" style="margin:6px 0"><div>${esc(x.name)} <span class="m">(${esc((s.find(y=>y.id==x.sid)||{}).name||"?")} · ${x.questions.length} câu · ${x.time||"∞"}p · đảo câu:${x.sq?"có":"không"} · đảo đáp án:${x.sa?"có":"không"})</span></div><div class="row"><button onclick="editEx('${x.id}')">Sửa cài đặt</button><button onclick="expEx('${x.id}')">⬇ JSON</button><button onclick="expTxt('${x.id}')">⬇ TXT</button><button onclick="copyEx('${x.id}')">Sao chép</button><button class="d" onclick="delEx('${x.id}')">Xóa</button></div></div>`).join("")+`</div>
+ <div class="card" style="overflow:auto"><b>Thành viên (${u.length})</b><table><tr><th>Tên</th><th>Email</th><th>Đang làm</th><th>Hoạt động</th><th>Lượt</th><th>Gần nhất</th><th></th></tr>`+u.map(x=>{const m=a.filter(y=>y.uid==x.id).sort((p,q)=>q.at-p.at);return `<tr><td>${esc(x.name)}</td><td>${esc(x.email)}</td><td>${esc(x.cur||"-")}</td><td>${new Date(x.last||0).toLocaleString("vi")}</td><td>${m.length}</td><td>${m[0]?esc(m[0].en)+": "+m[0].score+" ("+fmt(m[0].secs)+")":"-"}</td><td><button class="${x.blocked?"":"d"}" onclick="blk('${x.id}',${!x.blocked})">${x.blocked?"Bỏ chặn":"Chặn"}</button> <button onclick="rst('${x.id}')">Reset</button> <button class="p" onclick="vu('${x.id}')">Chi tiết</button></td></tr>`}).join("")+`</table></div></div>`;A.innerHTML=h}
+async function addSub(){const n=document.getElementById("sn").value.trim();if(n){await db.collection("subjects").add({name:n});admin()}}
+async function delSub(id){if(confirm("Xóa môn và toàn bộ đề trong đó?")){for(const e of EX.filter(e=>e.sid==id))await db.doc("exams/"+e.id).delete();await db.doc("subjects/"+id).delete();admin()}}
+async function copySub(id){const s=SUBS.find(x=>x.id==id),r=await db.collection("subjects").add({name:s.name+" (bản sao)"});for(const e of EX.filter(e=>e.sid==id)){const{id:_,...d}=e;await db.collection("exams").add({...d,sid:r.id})}admin()}
+async function delEx(id){if(confirm("Xóa đề?")){await db.doc("exams/"+id).delete();admin()}}
+async function copyEx(id){const e=EX.find(x=>x.id==id),l=SUBS.map((s,i)=>(i+1)+". "+s.name).join("\n"),n=prompt("Sao chép sang môn nào? Nhập số:\n"+l,"1");const s=SUBS[n-1];if(!s)return;const{id:_,...d}=e;await db.collection("exams").add({...d,sid:s.id,name:e.name+" (bản sao)"});admin()}
+async function editEx(id){const e=EX.find(x=>x.id==id),t=prompt("Thời gian (phút, 0 = không giới hạn):",e.time);if(t===null)return;
+ await db.doc("exams/"+id).update({time:+t||0,sq:confirm("Đảo thứ tự câu hỏi? (OK = có, Cancel = không)"),sa:confirm("Đảo thứ tự đáp án? (OK = có, Cancel = không)")});admin()}
+async function blk(id,v){await db.doc("users/"+id).update({blocked:v});admin()}
+async function rst(id){if(!confirm("Xóa toàn bộ tiến trình/lịch sử của người này?"))return;const s=await db.collection("attempts").where("uid","==",id).get();for(const d of s.docs)await d.ref.delete();await db.doc("users/"+id).update({cur:""});admin()}
+
+// ===== Admin xem chi tiết người dùng =====
+function vu(id){const u=ALLU.find(x=>x.id==id),m=ALLA.filter(y=>y.uid==id).sort((p,q)=>q.at-p.at);
+ const nth=a=>ALLA.filter(y=>y.uid==id&&y.eid==a.eid&&y.at<=a.at).length;
+ A.innerHTML=bar(`<button onclick="admin()">← Quản trị</button>`)+`<div class="w"><div class="card"><b>${esc(u.name)}</b> <span class="m">${esc(u.email)} · ${m.length} lần làm bài</span></div><div class="card" style="overflow:auto"><b>Lịch sử làm bài</b><table><tr><th>Thời gian</th><th>Đề</th><th>Lần</th><th>Đúng</th><th>Điểm</th><th>Thời lượng</th><th></th></tr>`+
+ m.map(a=>`<tr><td>${new Date(a.at).toLocaleString("vi")}</td><td>${esc(a.en)}${a.only?" (câu sai)":""}</td><td>${nth(a)}</td><td>${a.correct}/${a.total}</td><td><b>${a.score}</b></td><td>${fmt(a.secs)}</td><td><button class="p" onclick="va('${a.id}','all')">Xem bài làm</button></td></tr>`).join("")+`</table></div></div>`}
+function va(id,f){const a=ALLA.find(x=>x.id==id);if(!a.det){alert("Lần làm này chưa lưu chi tiết (bài làm cũ).");return}
+ const st=x=>x.a<0?"sk":x.o[x.a]&&x.o[x.a].c?"ok":"no",fl={all:"Tất cả",ok:"Đúng",no:"Sai",sk:"Chưa chọn"};
+ let h=bar(`<button onclick="vu('${a.uid}')">← Lịch sử</button>`)+`<div class="w"><div class="card"><b>${esc(a.name)}</b> · ${esc(a.en)}<div class="m">${new Date(a.at).toLocaleString("vi")} · ⏱ ${fmt(a.secs)}</div><div class="big">${a.score}</div><p style="text-align:center">✅ ${a.det.filter(x=>st(x)=="ok").length} đúng · ❌ ${a.det.filter(x=>st(x)=="no").length} sai · ⏭ ${a.det.filter(x=>st(x)=="sk").length} chưa chọn</p></div><div class="row">`+
+ Object.keys(fl).map(k=>`<button class="${k==f?"p":""}" onclick="va('${id}','${k}')">${fl[k]}</button>`).join("")+`</div>`;
+ a.det.forEach((x,i)=>{if(f!="all"&&st(x)!=f)return;h+=`<div class="card"><b>Câu ${i+1} ${{ok:"✅",no:"❌",sk:"⏭"}[st(x)]}</b><div style="margin:6px 0">${tx(x.q)}</div>`+x.o.map((o,j)=>`<div class="o ${o.c?"ok":j==x.a?"no":""}"><i>${"ABCDEFGH"[j]}</i>${tx(o.t)}${j==x.a?' <span class="m">← đã chọn</span>':""}</div>`).join("")+`</div>`});
+ A.innerHTML=h+`</div>`}
+
+// ===== Đọc file .docx =====
+function build(items){const qs=[];let q=null,o=null;
+ items.forEach(({t,u})=>{let m;
+  if(m=t.match(/^\s*Câu\s*\d+\s*[.:)]\s*([\s\S]*)/i)){q={q:m[1].trim(),o:[]};o=null;qs.push(q)}
+  else if(q&&(m=t.match(/^\s*([A-Ha-h])\s*[.)]\s*([\s\S]*)/))){o={t:m[2].trim(),c:u};q.o.push(o)}
+  else if(q){if(o){o.t=o.t?o.t+"\n"+t:t;if(u)o.c=true}else q.q+="\n"+t}});
+ return qs.filter(x=>x.o.length>1)}
+async function parse(f){
+ if(/\.txt$/i.test(f.name))return build((await f.text()).split(/\r?\n/).map(l=>{const m=/^\s*\*(\s*[A-Ha-h]\s*[.)].*)$/.exec(l);return{t:(m?m[1]:l).replace(/\s+$/,""),u:!!m}}).filter(x=>x.t.trim()));
+ const h=(await mammoth.convertToHtml({arrayBuffer:await f.arrayBuffer()},{styleMap:["u => u"]})).value,d=new DOMParser().parseFromString(h,"text/html"),it=[];
+ d.body.querySelectorAll("p,li").forEach(p=>{p.querySelectorAll("br").forEach(b=>b.replaceWith("\n"));
+  const t=p.textContent.replace(/\s+$/,"");if(t.trim())it.push({t,u:[...p.querySelectorAll("u")].some(x=>x.textContent.trim())})});
+ return build(it)}
+async function upload(){const f=document.getElementById("uf").files[0],sid=document.getElementById("us").value,n=document.getElementById("un").value.trim(),m=document.getElementById("um");
+ if(f&&/\.json$/i.test(f.name)){try{const d=JSON.parse(await f.text()),ex=await gq("subjects");let c=0;
+   for(const s of d.subjects){let sb=ex.find(x=>x.name==s.name);if(!sb){const r=await db.collection("subjects").add({name:s.name});sb={id:r.id,name:s.name};ex.push(sb)}
+    for(const e of s.exams){await db.collection("exams").add({name:e.name,time:e.time||0,sq:!!e.sq,sa:!!e.sa,questions:e.questions,sid:sb.id,at:Date.now()});c++}}
+   alert("Đã nhập "+c+" đề.");admin()}catch(e){m.textContent="File JSON không hợp lệ: "+e.message}return}
+ if(!f||!sid||!n){m.textContent="Cần chọn môn, đặt tên và chọn file.";return}
+ m.textContent="Đang đọc...";const qs=await parse(f),bad=qs.filter(x=>!x.o.some(y=>y.c)).length;
+ if(!qs.length){m.textContent="Không đọc được câu hỏi nào.";return}
+ if(!confirm(`Đọc được ${qs.length} câu, ${bad} câu chưa có đáp án đúng. Lưu đề?`)){m.textContent="";return}
+ await db.collection("exams").add({sid,name:n,time:+document.getElementById("ut").value||0,sq:document.getElementById("uq").checked,sa:document.getElementById("ua").checked,questions:qs,at:Date.now()});admin()}
+// ===== Xuất / sao lưu =====
+function dl(n,t,m){const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([t],{type:m||"application/json"}));a.download=n;a.click()}
+const pk=e=>({name:e.name,time:e.time||0,sq:!!e.sq,sa:!!e.sa,questions:e.questions});
+function expEx(id){const e=EX.find(x=>x.id==id),s=SUBS.find(x=>x.id==e.sid);dl(e.name+".json",JSON.stringify({v:1,subjects:[{name:s?s.name:"",exams:[pk(e)]}]},null,1))}
+function expAll(){dl("saoluu-"+new Date().toISOString().slice(0,10)+".json",JSON.stringify({v:1,subjects:SUBS.map(s=>({name:s.name,exams:EX.filter(e=>e.sid==s.id).map(pk)}))},null,1))}
+function expTxt(id){const e=EX.find(x=>x.id==id);dl(e.name+".txt",e.questions.map((q,i)=>"Câu "+(i+1)+". "+q.q+"\n"+q.o.map((o,j)=>(o.c?"*":"")+"abcdefgh"[j]+". "+o.t).join("\n")).join("\n\n"),"text/plain")}
+</script></body></html>
